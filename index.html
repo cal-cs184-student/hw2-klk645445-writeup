@@ -32,11 +32,11 @@
 
 		<br>
 
-		Link to webpage: (TODO) <a href="https://cs184.eecs.berkeley.edu/fa26">cs184.eecs.berkeley.edu/fa26</a>
+		Link to webpage: <a href="https://cal-cs184-student.github.io/hw2-klk645445-writeup/">cal-cs184-student.github.io/hw2-klk645445-writeup</a>
 
 		<br>
 		
-		Link to GitHub repository: (TODO) <a href="https://cs184.eecs.berkeley.edu/fa26">cs184.eecs.berkeley.edu/fa26</a>
+		Link to GitHub repository: <a href="https://github.com/cal-cs184-student/hw2-klk645445">github.com/cal-cs184-student/hw2-klk645445</a>
 
 		<figure>
 			<img src="assets/teapot.png" alt="Teapot" style="width:50%"/>
@@ -53,36 +53,123 @@
 		<h2>Section I: Bezier Curves and Surfaces</h2>
 
 		<h3>Part 1: Bezier curves with 1D de Casteljau subdivision</h3>
-		Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+		<p>
+		De Casteljau's algorithm evaluates a Bezier curve at \( t \in [0, 1] \) by repeated linear interpolations, given \( n\) control points, \( p_0, \dots, p_{n-1} \)
+		one step of the algorithm lerps every pair of adjacent points. The formula for lerp is given as:
+		\[ p_i' = \text{lerp}(p_i, p_{i+1}, t) = (1 - t)\,p_i + t\,p_{i+1} \]
+		This produces \(n - 1 \) new intermediate points. Repeating it on the new intermediate points we get \( n - 2 \) points and so on.
+		The final point is exactly the point on the Bezier curve at parameter \( t \).
+		Geometrically, each level cuts of the corners of the previous control polygon and if we sweep \( t \)
+		from 0 to 1 we can trace out the whole curve.
+		</p>
 
-		<p>Here is an example 2x2 gridlike structure using an HTML table. Each <b>tr</b> is a row and each <b>td</b> is a column in that row. You might find this useful for framing and showing your result images in an organized fashion.</p>
+		<p>
+		I implemented one level of this recursion in the <code>BezierCurve::evaluateStep</code>. This function takes in a vector of 
+		\( n \) 2D points, loops over the \( n - 1 \) adjacent pairs, then lerps each pair usign the member variable \( t \). It then pushes the result
+		into the new vector of \( n - 1 \) points in order. The function only performs a single level, since the viewer calls it repeatedly, storing
+		each intermediate level so that each one can be drawn when stepping through the levels.
+		</p>
+
+		<p>
+		To test it, I created my own degree-5 curve with 6 control points (<code>bzc/my_curve.bzc</code>). The screenshots
+		below step through every level of evaluation at \( t = 0.5 \), the 6 original control points, then 5, 4, 3 and 2
+		intermediate points, and finally the single evaluated point in red. The full curve 
+		passes exactly through that red point, starts and ends at the first and last control points, and stays
+		within the convex hull of the control polygon, as expected of a Bezier curve.
+		</p>
+
+
 		<div style="display: flex; flex-direction: column; align-items: center;">
 			<table style="width: 100%; text-align: center; border-collapse: collapse;">
 			  <tr>
 				<td style="text-align: center;">
-				  <img src="assets/teapot.png" width="400px"/>
-				  <figcaption>Caption goes here.</figcaption>
+				  <img src="assets/part1_level0.png" width="400px"/>
+				  <figcaption>Level 0: 6 original control points</figcaption>
 				</td>
 				<td style="text-align: center;">
-				  <img src="assets/teapot.png" width="400px"/>
-				  <figcaption>Caption goes here.</figcaption>
+				  <img src="assets/part1_level1.png" width="400px"/>
+				  <figcaption>Level 1: 5 points</figcaption>
 				</td>
 			  </tr>
 			  <tr>
 				<td style="text-align: center;">
-				  <img src="assets/teapot.png" width="400px"/>
-				  <figcaption>Caption goes here.</figcaption>
+				  <img src="assets/part1_level2.png" width="400px"/>
+				  <figcaption>Level 2: 4 points</figcaption>
 				</td>
 				<td style="text-align: center;">
-				  <img src="assets/teapot.png" width="400px"/>
-				  <figcaption>Caption goes here.</figcaption>
+				  <img src="assets/part1_level3.png" width="400px"/>
+				  <figcaption>Level 3: 3 points</figcaption>
+				</td>
+			  </tr>
+			  <tr>
+				<td style="text-align: center;">
+				  <img src="assets/part1_level4.png" width="400px"/>
+				  <figcaption>Level 4: 2 points</figcaption>
+				</td>
+				<td style="text-align: center;">
+				  <img src="assets/part1_level5.png" width="400px"/>
+				  <figcaption>Level 5: final point on the curve</figcaption>
+				</td>
+			  </tr>
+			  <tr>
+				<td style="text-align: center;">
+				  <img src="assets/part1_full_curve.png" width="400px"/>
+				  <figcaption>Full Bezier curve (C toggled on)</figcaption>
+				</td>
+				<td style="text-align: center;">
+				  <img src="assets/part1_modified.png" width="400px"/>
+				  <figcaption>Moved control points and a different t</figcaption>
 				</td>
 			  </tr>
 			</table>
 		</div>
 
+		<p>
+		In the final screenshot, I dragged several of the control points to create a new curve. The curve updates to the new control polygon, and
+		the evaluated poitns slides along it, still landing exactly on the green curve.
+		</p>
+
 		<h3>Part 2: Bezier surfaces with separable 1D de Casteljau</h3>
-		Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+		<p>
+		A bezier surface patch is defined by an \(n \times n \) grid of control points and two parameters \(u , v \in [0, 1] \). De Casteljau's algorithm extends
+		to surfaces by applying the 1D algorithm separably. Each row of the control grid is treated as its own Bezier curve and evaluted at \( u \), which produces one point per row.
+		These \( n \) points form the control points of the new "moving" Bezier curve, running in the other direciton, and evaluating the curve at \(v \) gives the final point on the surface at \( (u, v) \).
+		</p>
+
+		<p>
+		I implemented this with three functions:
+		</p>
+		<ul>
+		<li><code>BezierPatch::evaluateStep</code>: fundamentally the exact same code I implemented in part 1, just with 3D points 
+		and \( t )\ passed in as parameter.</li>
+		<li><code>BezierPatch::evaluate1D</code>: fully evaluates a 1D Bezier curve by making a copy of the input points
+			and repeatedly calling <code>evaluateStep</code> until only one point remains, then returning it.</li>
+		<li><code>BezierPatch::evaluate</code>: calls <code>evaluate1D</code> on each row of
+			<code>controlPoints</code> at parameter \( u \), collects those results into a vector, and returns
+			<code>evaluate1D</code> of that vector at parameter \( v \).</li>
+		</ul>
+		
+		<p>
+		For a 4×4 patch, each surface point therefore costs four 1D evaluations along the rows plus one across them,
+		\( 5 \times 6 = 30 \) lerps in total. The starter code samples each patch on a 16×16 grid of \( (u, v) \)
+		values and triangulates the results. Below is <code>bez/teapot.bez</code>, made of 32 bicubic patches, rendered
+		with my implementation. The wireframe view shows the sampled grid on each patch.
+		</p>
+
+		<div style="display: flex; flex-direction: column; align-items: center;">
+			<table style="width: 100%; text-align: center; border-collapse: collapse;">
+			  <tr>
+				<td style="text-align: center;">
+				  <img src="assets/part2_teapot_wireframe.png" width="400px"/>
+				  <figcaption>bez/teapot.bez with wireframe: the 16x16 grid of evaluate(u, v) samples per patch</figcaption>
+				</td>
+				<td style="text-align: center;">
+				  <img src="assets/part2_teapot_shaded.png" width="400px"/>
+				  <figcaption>bez/teapot.bez shaded</figcaption>
+				</td>
+			  </tr>
+			</table>
+		</div>
 
 		<h2>Section II: Triangle Meshes and Half-Edge Data Structure</h2>
 
