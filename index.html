@@ -148,7 +148,7 @@
 			<code>controlPoints</code> at parameter \( u \), collects those results into a vector, and returns
 			<code>evaluate1D</code> of that vector at parameter \( v \).</li>
 		</ul>
-		
+
 		<p>
 		For a 4×4 patch, each surface point therefore costs four 1D evaluations along the rows plus one across them,
 		\( 5 \times 6 = 30 \) lerps in total. The starter code samples each patch on a 16×16 grid of \( (u, v) \)
@@ -174,10 +174,116 @@
 		<h2>Section II: Triangle Meshes and Half-Edge Data Structure</h2>
 
 		<h3>Part 3: Area-weighted vertex normals</h3>
-		Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+
+		<p>
+
+		With the current shading, every triangle is lit using a single face normal, which leads to the brightness "jumping" at the 
+		edges of the face. Phong shading isntead assigns normals to each <b>vertex</b>, then interpolates those normals across each triangle.
+		A good vertex normal is the average of the normals of the faces surrounding the vertex, weighted by their areas so that large faces can
+		have more influence than small or thin faces.	
+		</p>
+
+		<p>
+		I implemented this in <code>Vertex::normal()</code>. Starting from the vertex's half-edge, I walk around every
+		face incident to the vertex using a do/while loop that steps to the next outgoing half-edge with
+		<code>h-&gt;twin()-&gt;next()</code>, stopping once I return to the starting half-edge. Because the function is
+		<code>const</code>, I use a <code>HalfedgeCIter</code>. For each face, I skip virtual boundary faces, which
+		represent holes in the mesh rather than real triangles, and otherwise read the face's three vertex positions
+		\( p_0, p_1, p_2 \) by following <code>h</code>, <code>h-&gt;next()</code> and
+		<code>h-&gt;next()-&gt;next()</code>, where \( p_0 \) is the vertex itself.
+		</p>
+
+		<p>
+		The key observation is that the cross product of two triangle edges already encodes both quantities I need.
+		\[ N = (p_1 - p_0) \times (p_2 - p_0), \qquad \lVert N \rVert = 2 \cdot \text{Area} \]
+		Its direction is the face normal pointing outwards, and its magnitude is
+		proportional to the face's area. So I sum the <i>unnormalized</i> cross products of all incident faces and
+		normalize the total once at the end. This gives the area-weighted average directly; the factor of 2 cancels
+		during normalization. I did't use <code>Face::normal()</code> as it would lose the area information 
+		and produce unweighted averages.
+		</p>
+
+		<p>
+		The screenshots below show <code>dae/teapot.dae</code> from the same viewpoint. With flat shading, the
+		individual triangles are clearly visible as bands of constant brightness along the body and spout. With my
+		area-weighted vertex normals enabled, the lighting varies continuously across faces and
+		the teapot appears smoothly curved, even though the mesh geometry is identical.
+		</p>
+
+		<div style="display: flex; flex-direction: column; align-items: center;">
+			<table style="width: 100%; text-align: center; border-collapse: collapse;">
+			  <tr>
+				<td style="text-align: center;">
+				  <img src="assets/part3_teapot_flat.png" width="400px"/>
+				  <figcaption>dae/teapot.dae with flat shading (face normals)</figcaption>
+				</td>
+				<td style="text-align: center;">
+				  <img src="assets/part3_teapot_smooth.png" width="400px"/>
+				  <figcaption>dae/teapot.dae with smooth shading (area-weighted vertex normals)</figcaption>
+				</td>
+			  </tr>
+			</table>
+		</div>
 
 		<h3>Part 4: Edge flip</h3>
-		Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+		<p>
+		An edge flip takes the edge shared by two triangles \( (a, b, c) \) and \( (c, b, d) \) and replaces it with the
+		other diagonal of the quadrilateral they form, producing triangles \( (a, d, c) \) and \( (a, b, d) \). No mesh
+		elements are created or deleted. No new mesh elements are created or deleted, as it retains the same amount of half edges, vertices, edges and faces. If a
+		face lies on the boundary, it is ignored.
+		</p>
+
+		<p>
+		I followed the recommended approach as stated in the spec, which was to name every element first, then reassign the pointers.
+		I stored all the 10 half edges starting with <code>h0 = e0-&gt;halfedge()</code> and using <code>next()</code> and <code>twin()</code> 
+		to find the next edge. This also gives me the four vertices, five edges and two faces. This minimizes confusion when re-wiring the pointer
+		references.
+		</p>
+
+		<p>
+		I then drew the mesh after the flip and wrote out a table giving each of the six interior half-edges its new
+		<code>next</code>, <code>twin</code>, <code>vertex</code>, <code>edge</code> and <code>face</code>. The flipped
+		edge keeps its two half-edges, which now run between \( a \) and \( d \). The four outer edges are unchanged,
+		but two of their interior half-edges move to the other face. Each row of the table became one
+		<code>setNeighbors(...)</code> call. Finally, I reassigned the single <code>halfedge()</code> pointer of every
+		vertex, edge and face so that each refers to a half-edge that still belongs to it after the flip. This step is
+		easy to miss. For example, vertex \( b \) may originally have pointed to the half-edge \( b \to c \), which
+		after the flip starts at \( a \); leaving that pointer unchanged would break every traversal around \( b \).
+		</p>
+
+		<p>
+		Working out the full pointer table on paper before writing any code
+		was the most useful step. I checked it by following each face's <code>next</code> cycle to make sure it closed
+		after exactly three half-edges, and by confirming that every half-edge's <code>vertex</code> was the vertex it
+		starts from. To test the implementation, I flipped the same edge twice to confirm it returned to its original position, flipped
+		several neighboring edges in a row, and then turned on smooth shading (<b>Q</b>). Smooth shading walks around
+		every vertex, so any stale vertex pointer would have shown up as broken shading or a crash.
+		</p>
+
+		<p>
+		The screenshots below show <code>dae/teapot.dae</code> before and after flipping five edges on the front of the
+		body. In the close-up, each flipped edge now connects the opposite pair of corners of its quad, and the
+		surrounding mesh is intact with no holes.
+		</p>
+
+		<div style="display: flex; flex-direction: column; align-items: center;">
+			<table style="width: 100%; text-align: center; border-collapse: collapse;">
+			  <tr>
+				<td style="text-align: center;">
+				  <img src="assets/part4_before.png" width="400px"/>
+				  <figcaption>dae/teapot.dae before any edge flips</figcaption>
+				</td>
+				<td style="text-align: center;">
+				  <img src="assets/part4_after.png" width="400px"/>
+				  <figcaption>After flipping five edges on the front of the body</figcaption>
+				</td>
+			  </tr>
+			</table>
+			<figure style="margin-top: 12px;">
+				<img src="assets/part4_zoom_compare.png" style="width: 100%; max-width: 820px;"/>
+				<figcaption>Close-up of the same region, before (left) and after (right): each flipped edge now connects the other two corners of its quad, with no holes or broken faces.</figcaption>
+			</figure>
+		</div>
 
 		<h3>Part 5: Edge split</h3>
 		Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
